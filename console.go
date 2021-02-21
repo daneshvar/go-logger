@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -18,31 +19,32 @@ const (
 	defCallerAlign = 30
 )
 
-// const messageAlign = 70
+type WriteSync interface {
+	io.Writer
+	Sync() error
+}
 
-// Console write log to console stderr
 type Console struct {
 	pool        sync.Pool
 	enableColor bool
 	scopeAlign  int
 	callerAlign int
+	wr          WriteSync
+	wrLock      sync.Mutex
+
+	writeMessage func(b *bytes.Buffer, l Level, scope string, caller string, m string)
+	writeKey     func(b *bytes.Buffer, s string)
+	writeValue   func(b *bytes.Buffer, s string)
+	writeScope   func(b *bytes.Buffer, scope string)
+	writeCaller  func(b *bytes.Buffer, caller string)
 }
 
 func ConsoleWriter(caller bool, stack EnablerFunc, enabler EnablerFunc) *Writer {
-	return newWriter(enabler, stack, caller, &Console{
-		pool: sync.Pool{New: func() interface{} {
-			b := bytes.NewBuffer(make([]byte, 150)) // buffer init with 150 size
-			b.Reset()
-			return b
-		}},
-		enableColor: true,
-		scopeAlign:  defScopeAlign,
-		callerAlign: defCallerAlign,
-	})
+	return ConsoleWriterWithOptions(caller, stack, enabler, true, defScopeAlign, defCallerAlign)
 }
 
-// ConsoleWriterWithOptions use default value of scopeAlign & callerAlign with set they with -1
-func ConsoleWriterWithOptions(caller bool, stack EnablerFunc, enabler EnablerFunc, scopeAlign int, callerAlign int) *Writer {
+// use default value of scopeAlign & callerAlign with set they with -1 and 0 to disable
+func ConsoleWriterWithOptions(caller bool, stack EnablerFunc, enabler EnablerFunc, enableColor bool, scopeAlign int, callerAlign int) *Writer {
 	if scopeAlign < 0 {
 		scopeAlign = defScopeAlign
 	}
@@ -51,124 +53,154 @@ func ConsoleWriterWithOptions(caller bool, stack EnablerFunc, enabler EnablerFun
 		callerAlign = defCallerAlign
 	}
 
-	return newWriter(enabler, stack, caller, &Console{
+	c := &Console{
 		pool: sync.Pool{New: func() interface{} {
-			b := bytes.NewBuffer(make([]byte, 150)) // buffer init with 150 size
+			b := bytes.NewBuffer(make([]byte, 150))
 			b.Reset()
 			return b
 		}},
-		enableColor: true,
+		enableColor: enableColor,
 		scopeAlign:  scopeAlign,
 		callerAlign: callerAlign,
-	})
-}
-
-func (c *Console) close() {}
-
-func (c *Console) writeMessage(b *bytes.Buffer, l Level, scope string, caller string, m string) (n int) {
-	b.WriteString(time.Now().Format("2006-01-02 15:04:05"))
+		wr:          os.Stderr,
+	}
 
 	if c.enableColor {
-		c.setColor(b, consoleLevelColor[l])
+		c.writeMessage = c.writeMessageColor
+		c.writeKey = c.writeKeyColor
+		c.writeValue = c.writeValueColor
+	} else {
+		c.writeMessage = c.writeMessageSimple
+		c.writeKey = c.writeKeySimple
+		c.writeValue = c.writeValueSimple
 	}
+
+	if c.scopeAlign > 0 {
+		c.writeScope = c.writeScopeAlign
+	} else {
+		c.writeScope = c.writeScopeSimple
+	}
+
+	if c.callerAlign > 0 {
+		c.writeCaller = c.writeCallerAlign
+	} else {
+		c.writeCaller = c.writeCallerSimple
+	}
+
+	return newWriter(enabler, stack, caller, c)
+}
+
+func (c *Console) Print(l Level, scope string, caller string, stack []string, message string) {
+	buf := c.getBuffer()
+	defer c.putBuffer(buf)
+
+	c.writeMessage(buf, l, scope, caller, message)
+	c.writeStack(buf, stack)
+	c.writeEnd(buf, l, 2)
+}
+
+func (c *Console) Printv(l Level, scope string, caller string, stack []string, message string, keysValues []interface{}) {
+	buf := c.getBuffer()
+	defer c.putBuffer(buf)
+
+	c.writeMessage(buf, l, scope, caller, message)
+	c.writeValues(buf, keysValues)
+	c.writeStack(buf, stack)
+	c.writeEnd(buf, l, 2)
+}
+
+func (c *Console) close() {
+	_ = c.wr.Sync()
+}
+
+func (c *Console) writeMessageColor(b *bytes.Buffer, l Level, scope string, caller string, m string) {
+	b.WriteString(time.Now().Format("2006-01-02 15:04:05"))
+
+	c.setColor(b, consoleLevelColor[l])
 	b.WriteString(consoleLevelText[l])
 
 	c.writeScope(b, scope)
 	c.writeCaller(b, caller)
 
-	if c.enableColor {
-		c.resetColor(b)
-		b.WriteString(m)
-	} else {
-		b.WriteByte('"')
-		b.WriteString(m)
-		b.WriteByte('"')
-	}
-
-	n += len(m)
-	return
+	c.resetColor(b)
+	b.WriteString(m)
 }
 
-func (c *Console) writeScope(b *bytes.Buffer, scope string) (n int) {
-	if c.scopeAlign <= 0 {
-		if scope != "" {
-			b.WriteString("[" + scope + "]  ")
-			n = len(scope) + 4
-		}
-	} else {
-		if scope != "" {
-			b.WriteString("[" + scope + "]")
-			n = c.writeAlign(c.scopeAlign, len(scope)+2, b)
-		} else {
-			n = c.writeAlign(c.scopeAlign, 0, b)
-		}
-	}
-
-	return
+func (c *Console) writeKeyColor(b *bytes.Buffer, s string) {
+	b.WriteByte(32) // Space
+	c.setColor(b, "34")
+	b.WriteString(s)
+	c.resetColor(b)
+	b.WriteByte('=')
 }
 
-func (c *Console) writeCaller(b *bytes.Buffer, caller string) (n int) {
-	if c.callerAlign <= 0 {
-		if caller != "" {
-			b.WriteString(caller + "  ")
-			n = len(caller) + 2
-		}
-	} else {
-		if caller != "" {
-			b.WriteString(caller)
-			n = c.writeAlign(c.callerAlign, len(caller), b)
-		}
-	}
-
-	return
+func (c *Console) writeValueColor(b *bytes.Buffer, s string) {
+	c.setColor(b, "36")
+	b.WriteString(s)
+	c.resetColor(b)
 }
 
-func (c *Console) writeAlign(align int, len int, b *bytes.Buffer) int {
+func (c *Console) writeMessageSimple(b *bytes.Buffer, l Level, scope string, caller string, m string) {
+	b.WriteString(time.Now().Format("2006-01-02 15:04:05"))
+
+	b.WriteString(consoleLevelText[l])
+
+	c.writeScope(b, scope)
+	c.writeCaller(b, caller)
+
+	b.WriteByte('"')
+	b.WriteString(m)
+	b.WriteByte('"')
+}
+
+func (c *Console) writeKeySimple(b *bytes.Buffer, s string) {
+	b.WriteByte(' ')
+	b.WriteString(s)
+	b.WriteByte('=')
+}
+
+func (c *Console) writeValueSimple(b *bytes.Buffer, s string) {
+	b.WriteByte('"')
+	b.WriteString(s)
+	b.WriteByte('"')
+}
+
+func (c *Console) writeScopeAlign(b *bytes.Buffer, scope string) {
+	if scope != "" {
+		b.WriteString("[" + scope + "]")
+		c.writeAlign(c.scopeAlign, len(scope)+2, b)
+	} else {
+		c.writeAlign(c.scopeAlign, 0, b)
+	}
+}
+
+func (c *Console) writeCallerAlign(b *bytes.Buffer, caller string) {
+	if caller != "" {
+		b.WriteString(caller)
+		c.writeAlign(c.callerAlign, len(caller), b)
+	}
+}
+
+func (c *Console) writeScopeSimple(b *bytes.Buffer, scope string) {
+	if scope != "" {
+		b.WriteString("[" + scope + "]  ")
+	}
+}
+
+func (c *Console) writeCallerSimple(b *bytes.Buffer, caller string) {
+	if caller != "" {
+		b.WriteString(caller + "  ")
+	}
+}
+
+func (c *Console) writeAlign(align int, len int, b *bytes.Buffer) {
 	if len < align {
 		for i := align - len; i > 0; i-- {
-			b.WriteByte(32) // Space
+			b.WriteByte(32)
 		}
-		return align
 	} else {
-		b.WriteByte(32) // Space
+		b.WriteByte(32)
 	}
-
-	return len + 1
-}
-
-func (c *Console) writeEndValues(b *bytes.Buffer) {
-	// b.WriteByte(32) // Space
-}
-
-func (c *Console) writeKey(b *bytes.Buffer, s string) {
-	if c.enableColor {
-		b.WriteByte(32) // Space
-		c.setColor(b, "34")
-		b.WriteString(s)
-		c.resetColor(b)
-		b.WriteByte('=')
-	} else {
-		b.WriteByte(32) // Space
-		b.WriteString(s)
-		b.WriteByte('=')
-	}
-}
-
-func (c *Console) writeValue(b *bytes.Buffer, s string) {
-	if c.enableColor {
-		c.setColor(b, "36")
-		b.WriteString(s)
-		c.resetColor(b)
-	} else {
-		b.WriteByte('"')
-		b.WriteString(s)
-		b.WriteByte('"')
-	}
-}
-
-func (c *Console) writeNewline(b *bytes.Buffer) {
-	b.WriteByte('\r')
-	b.WriteByte('\n')
 }
 
 func (c *Console) getBuffer() *bytes.Buffer {
@@ -182,43 +214,38 @@ func (c *Console) putBuffer(b *bytes.Buffer) {
 
 func (c *Console) writeEnd(buf *bytes.Buffer, level Level, skipStack int) {
 	c.writeNewline(buf)
-	_, _ = buf.WriteTo(os.Stdout)
-}
-
-func (c *Console) Print(l Level, scope string, caller string, stack []string, message string) {
-	buf := c.getBuffer()
-	defer c.putBuffer(buf)
-	c.writeMessage(buf, l, scope, caller, message)
-	if len(stack) > 0 {
-		c.writeNewline(buf)
-		for i := range stack {
-			buf.WriteString("\t" + stack[i])
-		}
+	c.writeBuf(buf)
+	if level >= ErrorLevel {
+		_ = c.wr.Sync()
 	}
-	c.writeEnd(buf, l, 3)
 }
 
-func (c *Console) Printv(l Level, scope string, caller string, stack []string, message string, keysValues []interface{}) {
-	buf := c.getBuffer()
-	defer c.putBuffer(buf)
+func (c *Console) writeBuf(buf *bytes.Buffer) {
+	c.wrLock.Lock()
+	defer c.wrLock.Unlock()
+	_, _ = c.wr.Write(buf.Bytes())
+}
 
-	c.writeMessage(buf, l, scope, caller, message)
-
+func (c *Console) writeValues(buf *bytes.Buffer, keysValues []interface{}) {
 	lenValues := len(keysValues)
-	for i := 0; i < lenValues; i += 2 {
-		if key, ok := keysValues[i].(string); ok {
-			c.writeKey(buf, key)
+	for i := 0; i < lenValues; i++ {
+		c.writeKey(buf, fmt.Sprint(keysValues[i]))
+
+		i++
+		if i < lenValues {
+			c.writeValue(buf, fmt.Sprint(keysValues[i]))
 		} else {
-			c.writeKey(buf, "%KEY%")
+			c.writeValue(buf, "!VALUE")
 		}
-		c.writeValue(buf, fmt.Sprint(keysValues[i+1]))
 	}
-	c.writeEndValues(buf)
+}
+
+func (c *Console) writeStack(buf *bytes.Buffer, stack []string) {
 	if len(stack) > 0 {
 		for i := range stack {
-			buf.WriteString("\r\n    " + stack[i])
+			c.writeNewline(buf)
+			buf.WriteString("    " + stack[i])
 		}
 		c.writeNewline(buf)
 	}
-	c.writeEnd(buf, l, 2)
 }
