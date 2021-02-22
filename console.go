@@ -33,8 +33,8 @@ type Console struct {
 	wrLock      sync.Mutex
 
 	writeMessage func(b *bytes.Buffer, l Level, scope string, caller string, m string)
-	writeKey     func(b *bytes.Buffer, s string)
-	writeValue   func(b *bytes.Buffer, s string)
+	writeKey     func(b *bytes.Buffer, k interface{})
+	writeValue   func(b *bytes.Buffer, v interface{})
 	writeScope   func(b *bytes.Buffer, scope string)
 	writeCaller  func(b *bytes.Buffer, caller string)
 }
@@ -126,17 +126,17 @@ func (c *Console) writeMessageColor(b *bytes.Buffer, l Level, scope string, call
 	b.WriteString(m)
 }
 
-func (c *Console) writeKeyColor(b *bytes.Buffer, s string) {
+func (c *Console) writeKeyColor(b *bytes.Buffer, k interface{}) {
 	b.WriteByte(32) // Space
 	c.setColor(b, "34")
-	b.WriteString(s)
+	fmt.Fprint(b, k)
 	c.resetColor(b)
 	b.WriteByte('=')
 }
 
-func (c *Console) writeValueColor(b *bytes.Buffer, s string) {
+func (c *Console) writeValueColor(b *bytes.Buffer, v interface{}) {
 	c.setColor(b, "36")
-	b.WriteString(s)
+	fmt.Fprint(b, v)
 	c.resetColor(b)
 }
 
@@ -153,15 +153,15 @@ func (c *Console) writeMessageSimple(b *bytes.Buffer, l Level, scope string, cal
 	b.WriteByte('"')
 }
 
-func (c *Console) writeKeySimple(b *bytes.Buffer, s string) {
+func (c *Console) writeKeySimple(b *bytes.Buffer, k interface{}) {
 	b.WriteByte(' ')
-	b.WriteString(s)
+	fmt.Fprint(b, k)
 	b.WriteByte('=')
 }
 
-func (c *Console) writeValueSimple(b *bytes.Buffer, s string) {
+func (c *Console) writeValueSimple(b *bytes.Buffer, v interface{}) {
 	b.WriteByte('"')
-	b.WriteString(s)
+	fmt.Fprint(b, v)
 	b.WriteByte('"')
 }
 
@@ -229,11 +229,11 @@ func (c *Console) writeBuf(buf *bytes.Buffer) {
 func (c *Console) writeValues(buf *bytes.Buffer, keysValues []interface{}) {
 	lenValues := len(keysValues)
 	for i := 0; i < lenValues; i++ {
-		c.writeKey(buf, fmt.Sprint(keysValues[i]))
+		c.writeKey(buf, keysValues[i])
 
 		i++
 		if i < lenValues {
-			c.writeValue(buf, fmt.Sprint(keysValues[i]))
+			c.writeValue(buf, keysValues[i])
 		} else {
 			c.writeValue(buf, "!VALUE")
 		}
