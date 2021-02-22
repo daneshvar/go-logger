@@ -58,7 +58,7 @@ func (c *core) print1(l Level, s string, skip int, messages []interface{}) {
 		if w.isStack(l, s) {
 			stack = c.getStack(skip)
 		}
-		w.Print(l, s, caller, stack, fmt.Sprint(messages...))
+		w.Print(l, s, caller, stack, messages)
 	}
 }
 
@@ -74,7 +74,7 @@ func (c *core) printf1(l Level, s string, skip int, format string, args []interf
 			stack = c.getStack(skip)
 		}
 
-		w.Print(l, s, caller, stack, fmt.Sprintf(format, args...))
+		w.Printf(l, s, caller, stack, format, args)
 	}
 }
 
@@ -116,7 +116,7 @@ func (c *core) printAll(l Level, s string, skip int, messages []interface{}) {
 				stackS = stack
 			}
 
-			w.Print(l, s, callerS, stackS, fmt.Sprint(messages...))
+			w.Print(l, s, callerS, stackS, messages)
 		}
 	}
 }
@@ -143,7 +143,7 @@ func (c *core) printfAll(l Level, s string, skip int, format string, args []inte
 				}
 				stackS = stack
 			}
-			w.Print(l, s, callerS, stackS, message)
+			w.Prints(l, s, callerS, stackS, message)
 		}
 	}
 }

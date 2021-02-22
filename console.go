@@ -32,11 +32,11 @@ type Console struct {
 	wr          WriteSync
 	wrLock      sync.Mutex
 
-	writeMessage func(b *bytes.Buffer, l Level, scope string, caller string, m string)
-	writeKey     func(b *bytes.Buffer, k interface{})
-	writeValue   func(b *bytes.Buffer, v interface{})
-	writeScope   func(b *bytes.Buffer, scope string)
-	writeCaller  func(b *bytes.Buffer, caller string)
+	writePrefix func(b *bytes.Buffer, l Level, scope string, caller string)
+	writeKey    func(b *bytes.Buffer, k interface{})
+	writeValue  func(b *bytes.Buffer, v interface{})
+	writeScope  func(b *bytes.Buffer, scope string)
+	writeCaller func(b *bytes.Buffer, caller string)
 }
 
 func ConsoleWriter(caller bool, stack EnablerFunc, enabler EnablerFunc) *Writer {
@@ -66,11 +66,11 @@ func ConsoleWriterWithOptions(caller bool, stack EnablerFunc, enabler EnablerFun
 	}
 
 	if c.enableColor {
-		c.writeMessage = c.writeMessageColor
+		c.writePrefix = c.writePrefixColor
 		c.writeKey = c.writeKeyColor
 		c.writeValue = c.writeValueColor
 	} else {
-		c.writeMessage = c.writeMessageSimple
+		c.writePrefix = c.writePrefixSimple
 		c.writeKey = c.writeKeySimple
 		c.writeValue = c.writeValueSimple
 	}
@@ -90,11 +90,32 @@ func ConsoleWriterWithOptions(caller bool, stack EnablerFunc, enabler EnablerFun
 	return newWriter(enabler, stack, caller, c)
 }
 
-func (c *Console) Print(l Level, scope string, caller string, stack []string, message string) {
+func (c *Console) Print(l Level, scope string, caller string, stack []string, messages []interface{}) {
 	buf := c.getBuffer()
 	defer c.putBuffer(buf)
 
-	c.writeMessage(buf, l, scope, caller, message)
+	c.writePrefix(buf, l, scope, caller)
+	fmt.Fprint(buf, messages...)
+	c.writeStack(buf, stack)
+	c.writeEnd(buf, l, 2)
+}
+
+func (c *Console) Prints(l Level, scope string, caller string, stack []string, message string) {
+	buf := c.getBuffer()
+	defer c.putBuffer(buf)
+
+	c.writePrefix(buf, l, scope, caller)
+	buf.WriteString(message)
+	c.writeStack(buf, stack)
+	c.writeEnd(buf, l, 2)
+}
+
+func (c *Console) Printf(l Level, scope string, caller string, stack []string, format string, args []interface{}) {
+	buf := c.getBuffer()
+	defer c.putBuffer(buf)
+
+	c.writePrefix(buf, l, scope, caller)
+	fmt.Fprintf(buf, format, args...)
 	c.writeStack(buf, stack)
 	c.writeEnd(buf, l, 2)
 }
@@ -103,7 +124,8 @@ func (c *Console) Printv(l Level, scope string, caller string, stack []string, m
 	buf := c.getBuffer()
 	defer c.putBuffer(buf)
 
-	c.writeMessage(buf, l, scope, caller, message)
+	c.writePrefix(buf, l, scope, caller)
+	buf.WriteString(message)
 	c.writeValues(buf, keysValues)
 	c.writeStack(buf, stack)
 	c.writeEnd(buf, l, 2)
@@ -113,7 +135,7 @@ func (c *Console) close() {
 	_ = c.wr.Sync()
 }
 
-func (c *Console) writeMessageColor(b *bytes.Buffer, l Level, scope string, caller string, m string) {
+func (c *Console) writePrefixColor(b *bytes.Buffer, l Level, scope string, caller string) {
 	b.WriteString(time.Now().Format("2006-01-02 15:04:05"))
 
 	c.setColor(b, consoleLevelColor[l])
@@ -123,7 +145,6 @@ func (c *Console) writeMessageColor(b *bytes.Buffer, l Level, scope string, call
 	c.writeCaller(b, caller)
 
 	c.resetColor(b)
-	b.WriteString(m)
 }
 
 func (c *Console) writeKeyColor(b *bytes.Buffer, k interface{}) {
@@ -140,17 +161,13 @@ func (c *Console) writeValueColor(b *bytes.Buffer, v interface{}) {
 	c.resetColor(b)
 }
 
-func (c *Console) writeMessageSimple(b *bytes.Buffer, l Level, scope string, caller string, m string) {
+func (c *Console) writePrefixSimple(b *bytes.Buffer, l Level, scope string, caller string) {
 	b.WriteString(time.Now().Format("2006-01-02 15:04:05"))
 
 	b.WriteString(consoleLevelText[l])
 
 	c.writeScope(b, scope)
 	c.writeCaller(b, caller)
-
-	b.WriteByte('"')
-	b.WriteString(m)
-	b.WriteByte('"')
 }
 
 func (c *Console) writeKeySimple(b *bytes.Buffer, k interface{}) {
