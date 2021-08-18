@@ -87,7 +87,7 @@ func ConsoleWriterWithOptions(caller bool, stack EnablerFunc, enabler EnablerFun
 		c.writeCaller = c.writeCallerSimple
 	}
 
-	return newWriter(enabler, stack, caller, c)
+	return NewWriter(enabler, stack, caller, c)
 }
 
 func (c *Console) Print(l Level, scope string, caller string, stack []string, messages []interface{}) {

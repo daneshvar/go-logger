@@ -15,7 +15,7 @@ type Writer struct {
 	caller  bool
 }
 
-func newWriter(enabler EnablerFunc, stack EnablerFunc, caller bool, encoder encoder) *Writer {
+func NewWriter(enabler EnablerFunc, stack EnablerFunc, caller bool, encoder encoder) *Writer {
 	return &Writer{
 		encoder: encoder,
 		enabler: enabler,
