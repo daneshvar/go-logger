@@ -131,7 +131,7 @@ func (c *Console) Printv(l Level, scope string, caller string, stack []string, m
 	c.writeEnd(buf, l, 2)
 }
 
-func (c *Console) close() {
+func (c *Console) Close() {
 	_ = c.wr.Sync()
 }
 

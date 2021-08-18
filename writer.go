@@ -5,7 +5,7 @@ type encoder interface {
 	Prints(l Level, s string, caller string, stack []string, message string)
 	Printf(l Level, s string, caller string, stack []string, format string, args []interface{})
 	Printv(l Level, s string, caller string, stack []string, message string, keysValues []interface{})
-	close()
+	Close()
 }
 
 type Writer struct {

@@ -34,3 +34,7 @@ var (
 func ToLevel(level string) Level {
 	return toLevel[strings.ToUpper(level)]
 }
+
+func LevelText(level Level) string {
+	return levelText[level]
+}

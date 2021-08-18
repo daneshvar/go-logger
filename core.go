@@ -17,7 +17,7 @@ type core struct {
 
 func (c *core) Close() {
 	for _, w := range c.writers {
-		w.close()
+		w.Close()
 	}
 }
 
