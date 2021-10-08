@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 )
 
@@ -102,6 +103,11 @@ func (c *Core) print1(l Level, s string, skip int, messages []interface{}) {
 		}
 		w.Print(l, s, caller, stack, messages)
 	}
+}
+
+func (c *Core) exit() {
+	c.Close()
+	os.Exit(1)
 }
 
 func (c *Core) printf1(l Level, s string, skip int, format string, args []interface{}) {

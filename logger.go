@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"os"
 )
 
 const (
@@ -87,22 +86,22 @@ func (l *Logger) Errorv(message string, keysValues ...interface{}) {
 
 func (l *Logger) Fatal(messages ...interface{}) {
 	l.core.print(FatalLevel, l.scope, l.skip, messages)
-	os.Exit(1)
+	l.core.exit()
 }
 
 func (l *Logger) Fatalln(messages ...interface{}) {
 	l.core.print(FatalLevel, l.scope, l.skip, messages)
-	os.Exit(1)
+	l.core.exit()
 }
 
 func (l *Logger) Fatalf(format string, args ...interface{}) {
 	l.core.printf(FatalLevel, l.scope, l.skip, format, args)
-	os.Exit(1)
+	l.core.exit()
 }
 
 func (l *Logger) Fatalv(message string, keysValues ...interface{}) {
 	l.core.printv(FatalLevel, l.scope, l.skip, message, keysValues)
-	os.Exit(1)
+	l.core.exit()
 }
 
 func (l *Logger) Panic(messages ...interface{}) {
