@@ -7,21 +7,44 @@ import (
 
 type EnablerFunc func(level Level, scope string) bool
 
-type core struct {
+type Core struct {
 	writers []*Writer
 
 	print  func(l Level, s string, skip int, messages []interface{})
 	printf func(l Level, s string, skip int, format string, args []interface{})
 	printv func(l Level, s string, skip int, message string, keysValues []interface{})
+
+	revertStd func()
 }
 
-func (c *core) Close() {
+func New() *Core {
+	w := ConsoleWriter(true, func(l Level, s string) bool { return l >= ErrorLevel }, func(l Level, s string) bool { return true })
+
+	c := &Core{}
+	c.Config(w)
+	return c
+}
+
+func (c *Core) GetLogger(scope string) *Logger {
+	return &Logger{
+		core:  c,
+		scope: scope,
+		skip:  defaultSkip,
+	}
+}
+
+func (c *Core) Close() {
+	if c.revertStd != nil {
+		c.revertStd()
+		c.revertStd = nil
+	}
+
 	for _, w := range c.writers {
 		w.Close()
 	}
 }
 
-func (c *core) Config(w []*Writer) {
+func (c *Core) Config(w ...*Writer) {
 	switch len(w) {
 	case 0:
 		c.print = func(l Level, s string, skip int, messages []interface{}) {}
@@ -47,7 +70,26 @@ func (c *core) Config(w []*Writer) {
 	c.writers = w
 }
 
-func (c *core) print1(l Level, s string, skip int, messages []interface{}) {
+// RedirectStdLog std log to this to Info Level
+// It returns a function to restore the original prefix and flags and reset the
+// standard library's output to os.Stderr.
+func (c *Core) RedirectStdLog(scope string) {
+	c.RedirectStdLogAt(scope, InfoLevel)
+}
+
+// RedirectStdLogAt std log to this at log level
+// It returns a function to restore the original prefix and flags and reset the
+// standard library's output to os.Stderr.
+func (c *Core) RedirectStdLogAt(scope string, level Level) {
+	if c.revertStd != nil {
+		c.revertStd()
+		c.revertStd = nil
+	}
+
+	c.revertStd = redirectStdLogAt(c, scope, level)
+}
+
+func (c *Core) print1(l Level, s string, skip int, messages []interface{}) {
 	w := c.writers[0]
 	if w.isEnable(l, s) {
 		caller := ""
@@ -62,7 +104,7 @@ func (c *core) print1(l Level, s string, skip int, messages []interface{}) {
 	}
 }
 
-func (c *core) printf1(l Level, s string, skip int, format string, args []interface{}) {
+func (c *Core) printf1(l Level, s string, skip int, format string, args []interface{}) {
 	w := c.writers[0]
 	if w.isEnable(l, s) {
 		caller := ""
@@ -78,7 +120,7 @@ func (c *core) printf1(l Level, s string, skip int, format string, args []interf
 	}
 }
 
-func (c *core) printv1(l Level, s string, skip int, message string, keysValues []interface{}) {
+func (c *Core) printv1(l Level, s string, skip int, message string, keysValues []interface{}) {
 	w := c.writers[0]
 	if w.isEnable(l, s) {
 		caller := ""
@@ -93,7 +135,7 @@ func (c *core) printv1(l Level, s string, skip int, message string, keysValues [
 	}
 }
 
-func (c *core) printAll(l Level, s string, skip int, messages []interface{}) {
+func (c *Core) printAll(l Level, s string, skip int, messages []interface{}) {
 	caller := ""
 	var stack []string
 
@@ -121,7 +163,7 @@ func (c *core) printAll(l Level, s string, skip int, messages []interface{}) {
 	}
 }
 
-func (c *core) printfAll(l Level, s string, skip int, format string, args []interface{}) {
+func (c *Core) printfAll(l Level, s string, skip int, format string, args []interface{}) {
 	caller := ""
 	var stack []string
 
@@ -148,7 +190,7 @@ func (c *core) printfAll(l Level, s string, skip int, format string, args []inte
 	}
 }
 
-func (c *core) printvAll(l Level, s string, skip int, message string, keysValues []interface{}) {
+func (c *Core) printvAll(l Level, s string, skip int, message string, keysValues []interface{}) {
 	caller := ""
 	var stack []string
 
@@ -174,7 +216,7 @@ func (c *core) printvAll(l Level, s string, skip int, message string, keysValues
 	}
 }
 
-func (c *core) getCaller(skip int) string {
+func (c *Core) getCaller(skip int) string {
 	frame, defined := getCallerFrame(skip) // log.callerSkip + callerSkipOffset
 	if !defined {
 		return ""
@@ -183,6 +225,6 @@ func (c *core) getCaller(skip int) string {
 	return getFolderFile(frame.File) + ":" + strconv.Itoa(frame.Line)
 }
 
-func (c *core) getStack(skip int) []string {
+func (c *Core) getStack(skip int) []string {
 	return getStack(skip)
 }

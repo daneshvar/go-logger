@@ -8,14 +8,16 @@ import (
 )
 
 func main() {
-	defer logger.Close()
-	logger.RedirectStdLog()
+	core := logger.New()
+	defer core.Close()
+
+	core.RedirectStdLogAt("other", logger.ErrorLevel)
 
 	consoleEnabler := func(l logger.Level, s string) bool { return true }
 	stackEnabler := func(l logger.Level, s string) bool { return l == logger.ErrorLevel }
-	logger.Config(logger.ConsoleWriter(true, stackEnabler, consoleEnabler))
+	core.Config(logger.ConsoleWriter(true, stackEnabler, consoleEnabler))
 
-	log := logger.GetLogger("example")
+	log := core.GetLogger("example")
 
 	log.Trace("Check Trace 1")
 
@@ -32,7 +34,7 @@ func main() {
 	)
 	test(log)
 
-	rtsp.GetPacketFunc()
+	rtsp.GetPacketFunc(log)
 
 	log.Fatal("Fatal")
 }

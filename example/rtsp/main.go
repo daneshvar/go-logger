@@ -6,8 +6,8 @@ import (
 	"github.com/daneshvar/go-logger"
 )
 
-func GetPacketFunc() {
-	log := logger.GetLogger("rtsp")
+func GetPacketFunc(log *logger.Logger) {
+	log = log.GetLogger("rtsp")
 
 	//log.Info("Namitonam fetch konam")
 	//
