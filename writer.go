@@ -15,29 +15,38 @@ type Writer struct {
 	caller bool
 
 	isEnable EnablerFunc
-	isStack  EnablerFunc
+	isStack  Level
 }
 
 func NewWriter(caller bool, encoder encoder) *Writer {
 	w := &Writer{
 		encoder: encoder,
 		caller:  caller,
+		isStack: ErrorLevel,
 	}
 
 	w.Enabler(func(Level, string) bool { return true })
-	w.Stack(func(l Level, _ string) bool { return l >= ErrorLevel })
 
 	return w
 }
 
-func (w *Writer) Config(scope map[string]string, level *string) error {
+func (w *Writer) Config(scope map[string]string, level *string, stack *string) error {
 	def := InfoLevel
+	stackLevel := ErrorLevel
 
 	if level != nil {
 		var ok bool
 		def, ok = ToLevel(*level)
 		if !ok {
 			return fmt.Errorf("config value is illegal: %s", *level)
+		}
+	}
+
+	if stack != nil {
+		var ok bool
+		stackLevel, ok = ToLevel(*stack)
+		if !ok {
+			return fmt.Errorf("config value is illegal: %s", *stack)
 		}
 	}
 
@@ -54,6 +63,8 @@ func (w *Writer) Config(scope map[string]string, level *string) error {
 	} else {
 		w.EnablerByLevel(def)
 	}
+
+	w.StackByLevel(stackLevel)
 
 	return nil
 }
@@ -78,22 +89,7 @@ func (w *Writer) EnablerByScope(m map[string]Level, def Level) *Writer {
 	})
 }
 
-func (w *Writer) Stack(fn EnablerFunc) *Writer {
-	w.isStack = fn
-	return w
-}
-
 func (w *Writer) StackByLevel(l Level) *Writer {
-	return w.Stack(func(level Level, _ string) bool {
-		return level >= l
-	})
-}
-
-func (w *Writer) StackByScope(m map[string]Level, def Level) *Writer {
-	return w.Stack(func(level Level, scope string) bool {
-		if l, ok := m[scope]; ok {
-			return level >= l
-		}
-		return level >= def
-	})
+	w.isStack = l
+	return w
 }

@@ -98,7 +98,7 @@ func (c *Core) print1(l Level, s string, skip int, messages []interface{}) {
 		if w.caller {
 			caller = c.getCaller(skip)
 		}
-		if w.isStack(l, s) {
+		if l >= w.isStack {
 			stack = c.getStack(skip)
 		}
 		w.Print(l, s, caller, stack, messages)
@@ -118,7 +118,7 @@ func (c *Core) printf1(l Level, s string, skip int, format string, args []interf
 		if w.caller {
 			caller = c.getCaller(skip)
 		}
-		if w.isStack(l, s) {
+		if l >= w.isStack {
 			stack = c.getStack(skip)
 		}
 
@@ -134,7 +134,7 @@ func (c *Core) printv1(l Level, s string, skip int, message string, keysValues [
 		if w.caller {
 			caller = c.getCaller(skip)
 		}
-		if w.isStack(l, s) {
+		if l >= w.isStack {
 			stack = c.getStack(skip)
 		}
 		w.Printv(l, s, caller, stack, message, keysValues)
@@ -157,7 +157,7 @@ func (c *Core) printAll(l Level, s string, skip int, messages []interface{}) {
 				callerS = caller
 			}
 
-			if w.isStack(l, s) {
+			if l >= w.isStack {
 				if len(stack) == 0 {
 					stack = c.getStack(skip)
 				}
@@ -185,7 +185,7 @@ func (c *Core) printfAll(l Level, s string, skip int, format string, args []inte
 				callerS = caller
 			}
 
-			if w.isStack(l, s) {
+			if l >= w.isStack {
 				if len(stack) == 0 {
 					stack = c.getStack(skip)
 				}
@@ -211,7 +211,7 @@ func (c *Core) printvAll(l Level, s string, skip int, message string, keysValues
 				callerS = caller
 			}
 
-			if w.isStack(l, s) {
+			if l >= w.isStack {
 				if len(stack) == 0 {
 					stack = c.getStack(skip)
 				}

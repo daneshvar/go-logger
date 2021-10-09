@@ -59,7 +59,7 @@ func ConsoleWriterWithConfig(c *ConsoleConfig) (*Writer, error) {
 
 	w := ConsoleWriterWithOptions(caller, color, defScopeAlign, defCallerAlign)
 
-	if err := w.Config(c.Scope, c.Level); err != nil {
+	if err := w.Config(c.Scope, c.Level, c.Stack); err != nil {
 		return nil, err
 	}
 
