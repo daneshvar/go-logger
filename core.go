@@ -19,7 +19,7 @@ type Core struct {
 }
 
 func New() *Core {
-	w := ConsoleWriter(true, func(l Level, s string) bool { return l >= ErrorLevel }, func(l Level, s string) bool { return true })
+	w := ConsoleWriter(true)
 
 	c := &Core{}
 	c.Config(w)

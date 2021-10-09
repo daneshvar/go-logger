@@ -18,7 +18,7 @@ func BenchmarkEnableDirect(b *testing.B) {
 
 	w := ConsoleWriter(false, consoleEnabler, stackEnabler)
 	for i := 0; i < b.N; i++ {
-		w.enabler(WarnLevel, "ice")
+		w.enablerFn(WarnLevel, "ice")
 	}
 }
 

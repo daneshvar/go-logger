@@ -31,8 +31,12 @@ var (
 
 // ToLevel map text of level to log.Level
 // Trace, Debug, Info, Warn or Warning, Error or Err, Fatal, Panic
-func ToLevel(level string) Level {
-	return toLevel[strings.ToUpper(level)]
+func ToLevel(level string) (Level, bool) {
+	if l, ok := toLevel[strings.ToUpper(level)]; ok {
+		return l, true
+	}
+
+	return TraceLevel, false
 }
 
 func LevelText(level Level) string {

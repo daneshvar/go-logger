@@ -25,6 +25,8 @@ type WriteSync interface {
 }
 
 type Console struct {
+	encoder
+
 	pool        sync.Pool
 	enableColor bool
 	scopeAlign  int
@@ -39,12 +41,33 @@ type Console struct {
 	writeCaller func(b *bytes.Buffer, caller string)
 }
 
-func ConsoleWriter(caller bool, stack EnablerFunc, enabler EnablerFunc) *Writer {
-	return ConsoleWriterWithOptions(caller, stack, enabler, true, defScopeAlign, defCallerAlign)
+func ConsoleWriter(caller bool) *Writer {
+	return ConsoleWriterWithOptions(caller, true, defScopeAlign, defCallerAlign)
+}
+
+func ConsoleWriterWithConfig(c *ConsoleConfig) (*Writer, error) {
+	caller := true
+	color := true
+
+	if c.Caller != nil {
+		caller = *c.Caller
+	}
+
+	if c.Color != nil {
+		color = *c.Color
+	}
+
+	w := ConsoleWriterWithOptions(caller, color, defScopeAlign, defCallerAlign)
+
+	if err := w.Config(c.Scope, c.Level); err != nil {
+		return nil, err
+	}
+
+	return w, nil
 }
 
 // use default value of scopeAlign & callerAlign with set they with -1 and 0 to disable
-func ConsoleWriterWithOptions(caller bool, stack EnablerFunc, enabler EnablerFunc, enableColor bool, scopeAlign int, callerAlign int) *Writer {
+func ConsoleWriterWithOptions(caller bool, enableColor bool, scopeAlign int, callerAlign int) *Writer {
 	if scopeAlign < 0 {
 		scopeAlign = defScopeAlign
 	}
@@ -87,7 +110,7 @@ func ConsoleWriterWithOptions(caller bool, stack EnablerFunc, enabler EnablerFun
 		c.writeCaller = c.writeCallerSimple
 	}
 
-	return NewWriter(enabler, stack, caller, c)
+	return NewWriter(caller, c)
 }
 
 func (c *Console) Print(l Level, scope string, caller string, stack []string, messages []interface{}) {
