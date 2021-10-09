@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/daneshvar/go-logger"
-	"github.com/daneshvar/go-logger/example/rtsp"
 )
 
 func main() {
@@ -13,9 +12,7 @@ func main() {
 
 	core.RedirectStdLogAt("other", logger.ErrorLevel)
 
-	consoleEnabler := func(l logger.Level, s string) bool { return true }
-	stackEnabler := func(l logger.Level, s string) bool { return l == logger.ErrorLevel }
-	core.Config(logger.ConsoleWriter(true, stackEnabler, consoleEnabler))
+	core.Config(logger.ConsoleWriter(true))
 
 	log := core.GetLogger("example")
 
@@ -32,11 +29,11 @@ func main() {
 		"attempt", 3,
 		"backoff", time.Second,
 	)
-	test(log)
+	test(log.GetLogger("skip +1").Skip(1))
 
-	rtsp.GetPacketFunc(log)
+	// rtsp.GetPacketFunc(log)
 
-	log.Fatal("Fatal")
+	// log.Fatal("Fatal")
 }
 
 func test(log *logger.Logger) {
