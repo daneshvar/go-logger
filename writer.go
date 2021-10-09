@@ -31,7 +31,7 @@ func NewWriter(caller bool, encoder encoder) *Writer {
 }
 
 func (w *Writer) Config(scope map[string]string, level *string, stack *string) error {
-	def := InfoLevel
+	def := TraceLevel
 	stackLevel := ErrorLevel
 
 	if level != nil {
