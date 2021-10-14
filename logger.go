@@ -15,6 +15,8 @@ type Logger struct {
 	skip   int
 }
 
+// ToDo: GetLogger with same the scope value for different the skip value
+
 func (l *Logger) GetLogger(scope string) *Logger {
 	return l.core.GetLogger(scope)
 }
