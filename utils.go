@@ -5,7 +5,10 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 )
+
+type noCopy [0]sync.Mutex
 
 func getCallerFrame(skip int) (frame runtime.Frame, ok bool) {
 	const skipOffset = 2 // skip getCallerFrame and Callers

@@ -9,6 +9,8 @@ import (
 type EnablerFunc func(level Level, scope string) bool
 
 type Core struct {
+	noCopy noCopy
+
 	writers []*Writer
 
 	print  func(l Level, s string, skip int, messages []interface{})
